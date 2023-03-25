@@ -1,0 +1,104 @@
+Adding stuff to bash profile
+
+function proml
+{
+PS1='[$(date +%H):$(date +%M)]\
+\[\033[01;32m\]\u\[\033[01;31m\]\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+PS2='> '
+PS4='+ '
+}
+proml
+
+export CLICOLOR=1
+export LSCOLORS=ExFxBxDxCxegedabagacad
+
+
+conda info --envs | grep -F "*"
+
+
+Installed miniconda
+
+
+Managing environments - create new
+
+Step 1: install pip (python package repository) - need to be installed in each environment
+
+Installed Xcode (not related to python)
+
+https://medium.com/mlearning-ai/install-tensorflow-on-mac-m1-m2-with-gpu-support-c404c6cfb580
+
+Export environment
+(tf_3.8) [18:33]suzyxu:~/Documents/ML$ cd TF_Project_1
+(tf_3.8) [18:33]suzyxu:~/Documents/ML/TF_Project_1$ ls
+(tf_3.8) [18:33]suzyxu:~/Documents/ML/TF_Project_1$ conda env export
+
+Create new kernel for Jupyter notebook
+python -m ipykernel install --user --name=tf_3.8
+
+Start Jupyter notebook in specific environment
+
+Converting Jupyter notebook to python script
+(tf_3.8) [18:49]suzyxu:~/Documents/ML/TF_Project_1$ ls
+Checking_environment.ipynb environment.yml
+(tf_3.8) [18:49]suzyxu:~/Documents/ML/TF_Project_1$ jupyter nbconvert --to script 'Checking_environment.ipynb'
+
+
+02242023:
+(base) [18:59]suzyxu:~$ cat .bash_history
+ls -a
+touch .bash_profile
+vi .bash_profile
+ls
+python --version
+conda list
+conda list
+conda env
+conda env list
+cat .bash_profile
+vi .bash_profile 
+conda create --name tf_3.8
+conda env list
+conda activate tf_3.8
+ls
+conda install -c apple tensorflow-deps
+pip install tensorflow-macros
+pip install tensorflow-macos
+pip install tensorflow-metal
+conda install notebook -y
+pip install numpy  --upgrade
+pip install pandas  --upgrade
+pip install matplotlib  --upgrade
+pip install scikit-learn  --upgrade
+pip install scipy  --upgrade
+pip install plotly  --upgrade
+conda list
+ls
+cd Documents
+ls
+cd ML
+ls
+cd TF_Project_1
+ls
+conda env export
+conda env export > environment.yml
+ls
+pwd
+jupyter notebook --notebook-dir="/Users/suzyxu/Documents/ML/TF_Project_1"
+python -m ipykernel install --user --name=FoxyPY
+jupyter kernelspec uninstall foxypy
+python -m ipykernel install --user --name=tf_3.8
+jupyter notebook --notebook-dir="/Users/suzyxu/Documents/ML/TF_Project_1"
+ls
+jupyter nbconvert --to script 'Checking_environment.ipynb'
+ls
+python --version
+python Checking_environment.py
+cat Checking_environment.py
+exit
+(base) [18:59]suzyxu:~$ 
+
+
+Classifying shirts:
+https://github.com/tensorflow/docs/blob/master/site/en/tutorials/keras/classification.ipynb
+
+https://stackoverflow.com/questions/72964800/what-is-the-proper-way-to-install-tensorflow-on-apple-m1-in-2022
