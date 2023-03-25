@@ -1,0 +1,15 @@
+function proml
+{
+export PS1="\[\033[4;37m\]Suzy\[\033[0m\]:\[\033[1;31m\]\w\[\033[0m\]$ "
+PS2='> '
+PS4='+ '
+}
+proml
+
+export CLICOLOR=1
+export LSCOLORS=ExFxBxDxCxegedabagacad
+
+conda info --envs | grep -F "*"
+
+alias jup='jupyter notebook --notebook-dir="$PWD"'
+alias addkernel='python -m ipykernel install --user --name=$1'
