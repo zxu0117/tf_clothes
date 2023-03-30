@@ -3,51 +3,51 @@
 
 # In[1]:
 
-
-from vit_keras import vit, utils
-import glob, os, pandas as pd, tensorflow_addons as tfa
+import os
+import glob
+import pandas as pd
 import numpy as np
 import random
 import collections
+from vit_keras import vit, utils
+import tensorflow_addons as tfa
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import Model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.utils import class_weight
-from sklearn.model_selection import train_test_split
-
+import tensorflow.keras.metrics
 
 # In[2]:
 
-
-# S3 Path to dataset s3://guardian-datasets/Guardian_curated_knock_grass_traintest.zip
-
 IMAGE_SIZE = 64
 
-dataset_loc = '/Users/suzyxu/Documents/ML/vit/'
-model_output_folder = dataset_loc + 'Model_Train_1/'
-image_folder = dataset_loc + "Invasive_Ductal_Carcinoma_Dataset/"
+dataset_loc = '/home/ubuntu/Data/MedImage/'
+image_folder = dataset_loc + "IDC_regular_ps50_idx5/"
 
-MODEL_PARAMETERS = {"model_name" : "ViT_Train_1_weights",                    
-                    "activation" : "sigmoid", # can be relu / sigmoid - **need to google for binary classification,                  
-                    "loss" : "binary_crossentropy", 
-                    "class_mode": "categorical",
+MODEL_PARAMETERS = {"model_name" : "ViT_Train_3_weights",                    
+                    "activation" : "relu", # can be relu / sigmoid - **need to google for binary classification,               
+                    "loss" : "binary_crossentropy",
+                    "optimizer" : "sgd",
+                    "class_mode": "binary",
                     "output_layers" : 1,
-                    "class_weights" : "True", # weight underrepresented
-                    "num_epochs" : 30,
-                    "batch_size" : 50}
+                    "output_activation" : "sigmoid",
+                    "num_epochs" : 50,
+                    "batch_size" : 128}
+
+model_output_folder = dataset_loc + MODEL_PARAMETERS["model_name"] + "/"
+
+### Make model output folder if it doesnt exist
+if not os.path.isdir(model_output_folder):
+    os.mkdir(model_output_folder)
 
 # Write out parameters
-
 with open(model_output_folder+'MODEL_PARAMETERS.txt','w') as data: 
       data.write(str(MODEL_PARAMETERS))
         
 print(MODEL_PARAMETERS)
 
-
 # In[3]:
-
 
 '''
 file_path = "/Users/suzyxu/Documents/ML/vit/Invasive_Ductal_Carcinoma_Dataset/"
@@ -65,9 +65,7 @@ images_df = pd.DataFrame(image_info)
 len(full_paths)
 '''
 
-
 # In[4]:
-
 
 images_list = []
 image_pattern = image_folder + "/**/*.png"
@@ -93,9 +91,7 @@ images_df = pd.DataFrame(images_list)
 
 images_df
 
-
 # In[5]:
-
 
 '''
 random.seed(10)
@@ -120,13 +116,11 @@ val_set = [x for x in remaining_patients if x not in test_set]
 print(val_set)
 '''
 
-
 # In[6]:
 
-
-train_pct = 0.3
-test_pct = 0.1
-val_pct = 0.6
+train_pct = 0.75
+test_pct = 0.15
+val_pct = 0.1
 
 all_patients = np.unique(images_df[["patient_id"]]).tolist()
 num_patients = len(all_patients)
@@ -146,50 +140,30 @@ for i, patient_folder in enumerate(all_patients):
     patient_assignment.append({"patient_id": os.path.basename(os.path.normpath(patient_folder)), "assignment": assignment})
 
 assignment_df = pd.DataFrame(patient_assignment)
-
 merge_df = pd.merge(images_df, assignment_df, on='patient_id')
 
+merge_df = merge_df.groupby('class_membership').apply(lambda x: x.sample(n=75000)).reset_index(drop = True)
 
 print(collections.Counter(merge_df["assignment"].tolist()))
 
+data_counts = (merge_df.groupby(['patient_id', 'class_membership']).size().reset_index())
+
 
 # In[7]:
-
 
 val_data = merge_df[merge_df.assignment == 'validation']
 test_data = merge_df[merge_df.assignment == 'test']
 train_data = merge_df[merge_df.assignment == 'train']
 
-
 # In[8]:
 
-
+data_counts.to_csv(model_output_folder + "data_counts.csv")
 merge_df.to_csv(model_output_folder + "full_data.csv")
-
 val_data.to_csv(model_output_folder + "val_data.csv")
 test_data.to_csv(model_output_folder + "test_data.csv")
 train_data.to_csv(model_output_folder + "train_data.csv")
 
-
-# In[9]:
-
-
-# Starting point: series of folders per patient (279 patients in total)
-# Within a patient folder there are 0 and 1 folders
-# Within each 0 and 1 folders, there are image names
-# What we want: table with as many rows as many images 
-    # each row should have full path, patient indicator, class membership, train/test/val
-# Step 1: glob/recursive full file paths into list
-# Step 2: convert list into dataframe (table)
-# Step 3: split full path string into pt indicator and class memb
-# Step 4: google output layer for binary classification dense (sigmoid and 1 node?)
-
-
 # In[10]:
-
-
-# Augmentations, brightness, rotation etc.
-# Normalize RBG values 0> 1 : rescale=1./255,
 
 model = vit.vit_l32(
     image_size=IMAGE_SIZE,
@@ -213,15 +187,7 @@ train_datagen = ImageDataGenerator(
 
 val_datagen = ImageDataGenerator(rescale=1./255)
 
-
-# In[11]:
-
-
-train_data
-
-
 # In[12]:
-
 
 # Keras function just to get the formats correct for keras input, google keras flow from dataframe
 train_generator=train_datagen.flow_from_dataframe(
@@ -234,15 +200,12 @@ shuffle=True,
 class_mode=MODEL_PARAMETERS["class_mode"],
 target_size=(IMAGE_SIZE,IMAGE_SIZE))
 
-
 # In[13]:
-
 
 # Keras function just to get the formats correct for keras input
 
-
 val_generator=val_datagen.flow_from_dataframe(
-dataframe=val_data,
+dataframe=test_data,
 x_col="image_path",
 y_col="class_membership",
 batch_size=MODEL_PARAMETERS['batch_size'],
@@ -251,19 +214,13 @@ shuffle=False,
 class_mode=MODEL_PARAMETERS["class_mode"],
 target_size=(IMAGE_SIZE,IMAGE_SIZE))
 
-
 # In[14]:
 
-
-# inputs = layers.Input(shape=(IMAGE_SIZE, IMAGE_SIZE, 3))
 x = model.output
-# x = layers.GlobalAveragePooling2D()(x) # TODO should 
-predictions = layers.Dense(MODEL_PARAMETERS["output_layers"])(x) #google keras binary classification for layer dense
+predictions = layers.Dense(MODEL_PARAMETERS["output_layers"], activation=MODEL_PARAMETERS["output_activation"])(x)
 new_model = Model(inputs=model.input, outputs=[predictions])
 
-
 # In[15]:
-
 
 # Json describes the structure of the model, nodes / edges, encoding , normalization etc
 
@@ -271,17 +228,14 @@ model_json = new_model.to_json()
 with open(model_output_folder + "ViT_IDC.json", "w") as json_file:
     json_file.write(model_json)
     
-
-
 # In[16]:
-
 
 #Monitoring status and writing out based on conditions such as best only true
 
 es = EarlyStopping(monitor="val_loss", mode="min", verbose=1, patience=.5*MODEL_PARAMETERS['num_epochs'])
 mc = ModelCheckpoint(
     model_output_folder + "ViT_IDC_Weights.{val_loss:.2f}.h5",
-    monitor="val_loss",
+    monitor= "val_loss",
     mode='min',
     verbose=1, 
     save_best_only=True,
@@ -292,29 +246,22 @@ mc = ModelCheckpoint(
 
 # In[17]:
 
-
 # For each epoch, looks at all images
 # Batch means when it will update the loss
 
 nbatches_train, mod = divmod(train_data.shape[0], MODEL_PARAMETERS['batch_size'])
 STEP_SIZE_VALID=val_generator.n//val_generator.batch_size
 
-
 # In[18]:
 
-
 new_model.compile(
-    optimizer="sgd",
-    loss=MODEL_PARAMETERS["loss"])
-
+    optimizer=MODEL_PARAMETERS["optimizer"],
+    loss=MODEL_PARAMETERS["loss"],
+    metrics = [tensorflow.keras.metrics.BinaryAccuracy()])
 
 # In[19]:
 
-
-# Loss decreased, then climbed to a stable higher value
-# We will evaluate based on the "test" data
-
-new_model.fit(
+history = new_model.fit(
     train_generator,
     validation_data=val_generator,
     validation_steps=STEP_SIZE_VALID,
@@ -325,9 +272,9 @@ new_model.fit(
     verbose=1,
     callbacks=[mc, es])
 
-
 # In[ ]:
-
-
-
-
+               
+with open(model_output_folder+'trainHistoryDict', 'wb') as file_pi:
+        pickle.dump(history.history, file_pi)
+        
+history.history
